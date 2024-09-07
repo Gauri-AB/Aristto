@@ -24,7 +24,7 @@ This is a web application for searching and managing research papers. Users can 
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/Gauri-AB/aristto.git
+   git clone  https://github.com/Gauri-AB/Aristto.git
    cd research-paper-search
 2. **Set Up Virtual Environment
    ```bash
