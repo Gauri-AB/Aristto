@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Paper Search - Pro Edition</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        #search-container {
+            margin: 30px auto;
+            max-width: 800px;
+        }
+
+        .spinner-border {
+            display: none;
+            margin-left: 10px;
+        }
+
+        .card {
+            margin-bottom: 15px;
+        }
+
+        #filters-sidebar {
+            border-right: 1px solid #ddd;
+            padding-right: 15px;
+        }
+
+        #results-section {
+            padding-left: 20px;
+        }
+
+        .filter-label {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .saved-papers-section {
+            background-color: #f1f1f1;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .search-results {
+            margin-top: 20px;
+        }
+
+        .no-results {
+            margin-top: 20px;
+            color: red;
+        }
+
+        /* Smooth Fade-In for Cards */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card {
+            animation: fadeIn 0.4s ease-in;
+        }
+
+        /* Spinner animation for loading */
+        .spinner-border {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Fade-out animation for removed papers */
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+
+        .removed {
+            animation: fadeOut 0.3s forwards;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="text-center">
+        <h1>Research Paper Search</h1>
+    </header>
+
+    <section id="search-section" class="d-flex justify-content-center">
+        <div id="search-container" class="input-group">
+            <input type="text" class="form-control" id="search-input" placeholder="Enter keywords to search papers...">
+            <button id="search-button" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
+            <div class="spinner-border text-primary" id="spinner" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </section>
+
+    <div class="container-fluid mt-5">
+        <div class="row">
+            <!-- Filter Sidebar -->
+            <aside id="filters-sidebar" class="col-md-3">
+                <h4>Filters</h4>
+                <div class="filter-label">Year:</div>
+                <input type="number" class="form-control" id="year-filter" placeholder="Enter year">
+
+                <div class="filter-label">Citations:</div>
+                <input type="number" class="form-control" id="citation-filter" placeholder="Min Citations">
+
+                <div class="filter-label">Author:</div>
+                <input type="text" class="form-control" id="author-filter" placeholder="Author name">
+                
+                <button class="btn btn-outline-primary mt-3" id="apply-filters">Apply Filters</button>
+            </aside>
+
+            <!-- Search Results Section -->
+            <section id="results-section" class="col-md-6">
+                <h4>Search Results</h4>
+                <div id="results-list" class="search-results"></div>
+                <div class="no-results" id="no-results-message">No results found.</div>
+            </section>
+
+            <!-- Previous Searches Section -->
+            <section id="previous-results-section" class="mt-4">
+                <h4>Previous Search Results</h4>
+                <div id="previous-results-list" class="search-results"></div>
+            </section>
+
+            <!-- Saved Papers Section -->
+            <aside class="col-md-3">
+                <h4>Saved Papers</h4>
+                <div id="saved-papers-list" class="saved-papers-section">
+                    <p>No papers saved yet.</p>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        const mockPapers = [
+            {
+                title: "Deep Learning in AI",
+                authors: "John Doe, Jane Smith",
+                year: 2021,
+                citations: 25,
+                abstract: "This paper explores deep learning techniques in artificial intelligence..."
+            },
+            {
+                title: "A Study on Machine Learning",
+                authors: "Alice Brown, Bob Johnson",
+                year: 2020,
+                citations: 40,
+                abstract: "This study delves into the intricacies of machine learning algorithms..."
+            }
+        ];
+
+        let savedPapers = [];
+
+        // Function to display results
+        let previousSearches = []; // Array to store previous search results
+
+function displayResults(papers, query = '') {
+    const resultsList = document.getElementById('results-list');
+    resultsList.innerHTML = ''; // Clear previous results
+    const noResultsMessage = document.getElementById('no-results-message');
+
+    if (papers.length === 0) {
+        noResultsMessage.style.display = 'block';
+        return;
+    }
+
+    noResultsMessage.style.display = 'none';
+
+    papers.forEach((paper) => {
+        const paperCard = document.createElement('div');
+        paperCard.className = 'card';
+        paperCard.innerHTML = `
+            <div class="card-body">
+                <h5 class="card-title">${paper.title}</h5>
+                <p class="card-text"><strong>Authors:</strong> ${paper.authors}</p>
+                <p class="card-text"><strong>Year:</strong> ${paper.year}</p>
+                <p class="card-text"><strong>Citations:</strong> ${paper.citations}</p>
+                <p class="card-text">${paper.abstract}</p>
+                <button class="btn btn-success save-button">Save Paper</button>
+            </div>
+        `;
+
+        paperCard.querySelector('.save-button').addEventListener('click', () => {
+            savePaper(paper);
+        });
+
+        resultsList.appendChild(paperCard);
+    });
+
+    // Save the search result to previousSearches array and update the section
+    if (query) {
+        previousSearches.push({ query, papers });
+        updatePreviousSearches();
+    }
+}
+
+// Function to update the previous search results section
+function updatePreviousSearches() {
+    const previousResultsList = document.getElementById('previous-results-list');
+    previousResultsList.innerHTML = ''; // Clear the list
+
+    previousSearches.forEach((search) => {
+        const searchItem = document.createElement('div');
+        searchItem.className = 'card';
+        searchItem.innerHTML = `
+            <div class="card-body">
+                <h5 class="card-title">Search Query: ${search.query}</h5>
+                <p class="card-text">Results: ${search.papers.length} papers found.</p>
+                <button class="btn btn-primary view-search-results">View Results</button>
+            </div>
+        `;
+
+        searchItem.querySelector('.view-search-results').addEventListener('click', () => {
+            displayResults(search.papers);
+        });
+
+        previousResultsList.appendChild(searchItem);
+    });
+}
+
+               
+// Function to update saved papers section
+function updateSavedPapers() {
+    const savedPapersList = document.getElementById('saved-papers-list');
+    savedPapersList.innerHTML = '';
+
+    if (savedPapers.length === 0) {
+        savedPapersList.innerHTML = '<p>No papers saved yet.</p>';
+        return;
+    }
+
+    savedPapers.forEach(paper => {
+        const paperCard = document.createElement('div');
+        paperCard.className = 'card';
+        paperCard.innerHTML = `
+            <div class="card-body">
+                <h5 class="card-title">${paper.title}</h5>
+                <p class="card-text"><strong>Authors:</strong> ${paper.authors}</p>
+                <p class="card-text"><strong>Year:</strong> ${paper.year}</p>
+                <p class="card-text"><strong>Citations:</strong> ${paper.citations}</p>
+                <p class="card-text">${paper.abstract}</p>
+                <button class="btn btn-danger remove-button">Remove Paper</button>
+            </div>
+        `;
+
+        paperCard.querySelector('.remove-button').addEventListener('click', () => {
+            removePaper(paper.title);  // Call the remove function
+        });
+
+        savedPapersList.appendChild(paperCard);
+    });
+}
+
+        // Function to save a paper
+       // Function to save a paper
+function savePaper(paper) {
+    const isPaperSaved = savedPapers.some(savedPaper => savedPaper.title === paper.title);
+   
+    if (!isPaperSaved) {
+         fetch('http://127.0.0.1:5000/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(paper)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log(data.message); // Log success message
+        alert(data.message); // Optionally show alert
+
+        // Add paper to savedPapers array
+        savedPapers.push(paper);
+        updateSavedPapers(); // Update saved papers section
+
+    })
+    .catch(error => {
+        console.error('Error:', error); // Log any errors
+    });
+}
+else{
+    alert('This paper is already saved.');
+}
+}
+
+
+        // Function to update saved papers section
+       
+                      
+        // Function to search papers
+        function searchPapers(query) {
+            fetch('/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                displayResults(data);  // Function to display results in HTML
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        // Function to remove a paper with animation
+        // Function to remove a paper from saved papers only
+function removePaper(title) {
+    const savedPapersList = document.getElementById('saved-papers-list');
+    
+    // Find the specific card in the saved papers section by title
+    const paperCard = Array.from(savedPapersList.querySelectorAll('.card')).find(card =>
+        card.querySelector('.card-title').textContent === title
+    );
+
+    if (paperCard) {
+        // Add 'removed' class to trigger fade-out animation
+        paperCard.classList.add('removed');
+        
+        // After animation ends, remove the paper from saved papers and update the list
+        setTimeout(() => {
+            savedPapers = savedPapers.filter(paper => paper.title !== title);
+            updateSavedPapers();  // Update the UI after removal
+        }, 300);  // Wait for animation to finish
+    }
+}
+
+
+        // Event listener for search button
+        document.getElementById('search-button').addEventListener('click', () => {
+    const query = document.getElementById('search-input').value.toLowerCase();
+    const results = mockPapers.filter(paper => paper.title.toLowerCase().includes(query));
+    
+    displayResults(results, query); // Pass query to save search history
+});
+
+        // Apply filters
+        document.getElementById('apply-filters').addEventListener('click', () => {
+            const year = document.getElementById('year-filter').value;
+            const minCitations = document.getElementById('citation-filter').value;
+            const author = document.getElementById('author-filter').value.toLowerCase();
+
+            let filteredResults = mockPapers;
+
+            if (year) {
+                filteredResults = filteredResults.filter(paper => paper.year == year);
+            }
+
+            if (minCitations) {
+                filteredResults = filteredResults.filter(paper => paper.citations >= minCitations);
+            }
+
+            if (author) {
+                filteredResults = filteredResults.filter(paper => paper.authors.toLowerCase().includes(author));
+            }
+
+            displayResults(filteredResults);
+        });
+    </script>
+</body>
+
+</html>
